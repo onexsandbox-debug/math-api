@@ -5,6 +5,7 @@ export default async function handler(req, res) {
       param2 = 0,
       operation,
       round = false,
+      decimal_places = 2,
       random_number = false,
       random_length = 6
     } = req.body;
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
       param3 = Math.floor(min + Math.random() * (max - min + 1));
     }
 
-    // 🔧 MATH LOGIC (only if provided)
+    // 🔧 MATH LOGIC
     if (param1 !== undefined && operation) {
       switch (operation) {
         case "add":
@@ -61,13 +62,19 @@ export default async function handler(req, res) {
           });
       }
 
-      // 🔁 ROUNDING
+      // 🔁 ROUNDING (USER CONTROLLED)
       if (round) {
-        result = Number(result.toFixed(2));
+        if (decimal_places < 0 || decimal_places > 10) {
+          return res.status(400).json({
+            error: "decimal_places must be between 0 and 10"
+          });
+        }
+
+        result = Number(result.toFixed(decimal_places));
       }
     }
 
-    // 🔴 VALIDATION (important)
+    // 🔴 VALIDATION
     if (!random_number && (param1 === undefined || !operation)) {
       return res.status(400).json({
         error: "Either enable random_number OR provide param1 + operation"
@@ -85,11 +92,13 @@ export default async function handler(req, res) {
         param1,
         param2,
         operation,
+        round,
+        decimal_places,
         random_number,
         random_length
       },
-      result,     // null if only random
-      param3,     // random value if enabled
+      result,
+      param3,
       currentUnix,
       expiry
     });
