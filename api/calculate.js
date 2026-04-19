@@ -15,16 +15,22 @@ export default async function handler(req, res) {
 
     // 🔥 RANDOM NUMBER LOGIC
     if (random_number) {
-      if (![4, 5, 6].includes(random_length)) {
+      // Updated to allow range up to 24
+      if (typeof random_length !== 'number' || random_length < 1 || random_length > 24) {
         return res.status(400).json({
-          error: "random_length must be 4, 5, or 6"
+          error: "random_length must be between 1 and 24"
         });
       }
 
-      const min = Math.pow(10, random_length - 1);
-      const max = Math.pow(10, random_length) - 1;
-
-      param3 = Math.floor(min + Math.random() * (max - min + 1));
+      // String-based generation to prevent precision loss and scientific notation
+      let generatedString = "";
+      for (let i = 0; i < random_length; i++) {
+        const digit = i === 0 
+          ? Math.floor(Math.random() * 9) + 1 
+          : Math.floor(Math.random() * 10);
+        generatedString += digit;
+      }
+      param3 = generatedString;
     }
 
     // 🔧 MATH LOGIC
