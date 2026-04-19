@@ -11,8 +11,8 @@ export default async function handler(req, res) {
       date_param,
       in_date_format,
       req_date_format,
-      time_param,        // New: Input time (e.g., "1430" or "02:30 PM")
-      req_time_format    // New: Output format (e.g., "HH:mm:ss" or "hh:mm A")
+      time_param,
+      req_time_format
     } = req.body;
 
     let param3 = null;
@@ -20,8 +20,15 @@ export default async function handler(req, res) {
     let formatted_date = null;
     let formatted_time = null;
 
-    // 🕒 INITIALIZE DATE OBJECT (Defaults to Today/Now)
-    let d = (date_param && date_param.trim() !== "") ? null : new Date();
+    // 🕒 IST CONVERSION LOGIC (+5:30 from UTC)
+    const getISTDate = () => {
+      const now = new Date();
+      // IST is UTC + 5.5 hours
+      const istOffset = 5.5 * 60 * 60 * 1000; 
+      return new Date(now.getTime() + istOffset);
+    };
+
+    let d = (date_param && date_param.trim() !== "") ? null : getISTDate();
     
     // 📅 DATE PARSING
     if (date_param && date_param.trim() !== "") {
@@ -35,7 +42,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ⌚ TIME PARSING (If time_param is provided, adjust the date object 'd')
+    // ⌚ TIME PARSING
     if (time_param && time_param.trim() !== "" && d && !isNaN(d.getTime())) {
       const timeRegex = /(\d{1,2})[:.]?(\d{2})[:.]?(\d{0,2})\s*(AM|PM)?/i;
       const match = time_param.match(timeRegex);
@@ -50,18 +57,18 @@ export default async function handler(req, res) {
       }
     }
 
-    // 📤 FORMATTING OUTPUTS
+    // 📤 FORMATTING OUTPUTS (Using UTC methods to bypass server local time)
     if (d && !isNaN(d.getTime())) {
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      const HH = String(d.getHours()).padStart(2, '0');
-      const mmTime = String(d.getMinutes()).padStart(2, '0');
-      const ss = String(d.getSeconds()).padStart(2, '0');
-      const h12 = d.getHours() % 12 || 12;
-      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+      // If we used the IST offset, we use UTC getters to extract the shifted time
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = d.getUTCFullYear();
+      const HH = d.getUTCHours();
+      const mmTime = String(d.getUTCMinutes()).padStart(2, '0');
+      const ss = String(d.getUTCSeconds()).padStart(2, '0');
+      const h12 = HH % 12 || 12;
+      const ampm = HH >= 12 ? 'PM' : 'AM';
 
-      // Date Format Map
       const dateMap = {
         "DDMMYYYY": `${dd}${mm}${yyyy}`,
         "MMDDYYYY": `${mm}${dd}${yyyy}`,
@@ -69,24 +76,20 @@ export default async function handler(req, res) {
         "MM-DD-YYYY": `${mm}-${dd}-${yyyy}`,
         "YYYY-MM-DD": `${yyyy}-${mm}-${dd}`
       };
-      formatted_date = dateMap[req_date_format] || d.toISOString().split('T')[0];
+      formatted_date = dateMap[req_date_format] || `${dd}-${mm}-${yyyy}`;
 
-      // Time Format Map
       const timeMap = {
-        "HH:mm": `${HH}:${mmTime}`,
-        "HH:mm:ss": `${HH}:${mmTime}:${ss}`,
+        "HH:mm": `${String(HH).padStart(2, '0')}:${mmTime}`,
+        "HH:mm:ss": `${String(HH).padStart(2, '0')}:${mmTime}:${ss}`,
         "hh:mm A": `${String(h12).padStart(2, '0')}:${mmTime} ${ampm}`,
         "hh:mm:ss A": `${String(h12).padStart(2, '0')}:${mmTime}:${ss} ${ampm}`,
-        "HHmmss": `${HH}${mmTime}${ss}`
+        "HHmmss": `${String(HH).padStart(2, '0')}${mmTime}${ss}`
       };
-      formatted_time = timeMap[req_time_format] || `${HH}:${mmTime}:${ss}`;
+      formatted_time = timeMap[req_time_format] || `${String(HH).padStart(2, '0')}:${mmTime}:${ss}`;
     }
 
     // 🔥 RANDOM NUMBER LOGIC (24-char safe)
     if (random_number) {
-      if (typeof random_length !== 'number' || random_length < 1 || random_length > 24) {
-        return res.status(400).json({ error: "random_length must be 1-24" });
-      }
       let str = "";
       for (let i = 0; i < random_length; i++) {
         str += i === 0 ? Math.floor(Math.random() * 9) + 1 : Math.floor(Math.random() * 10);
@@ -109,15 +112,16 @@ export default async function handler(req, res) {
       if (round) result = Number(result.toFixed(decimal_places));
     }
 
-    // 🕒 UNIX LOGIC (STAYS AS IS)
-    const currentUnix = Math.floor(Date.now() / 1000);
+    // 🕒 UNIX TIME (Adjusted for IST)
+    const istNow = getISTDate();
+    const currentUnix = Math.floor(istNow.getTime() / 1000);
 
     return res.status(200).json({
       success: true,
       result,
       param3,
       formatted_date,
-      formatted_time, // New time output
+      formatted_time,
       currentUnix,
       expiry: currentUnix + 1800
     });
